@@ -16,12 +16,18 @@ final class CalendarModel: ObservableObject {
     /// 2000pt cleanly separates an ultrawide (~3440pt) from the built-in display (~1512–1800pt).
     @Published var allowFullTitle = false
 
+    /// How many minutes before a meeting starts to fire the notification.
+    private let notifyLeadMinutes: Double = 5
+
+    private let notificationDelegate = NotificationDelegate()
     private var notifiedEventIDs = Set<String>()
     private var timer: Timer?
 
     /// Requests calendar + notification access, then does the first load and
     /// starts the once-a-minute refresh. Safe to call repeatedly (.task).
     func start() async {
+        // Show banners even when the app is the active/frontmost process.
+        UNUserNotificationCenter.current().delegate = notificationDelegate
         do {
             let granted = try await store.requestFullAccessToEvents()
             authorized = granted
@@ -85,7 +91,7 @@ final class CalendarModel: ObservableObject {
               !notifiedEventIDs.contains(id) else { return }
 
         let minutesUntil = event.startDate.timeIntervalSinceNow / 60
-        guard minutesUntil <= 5, minutesUntil > 0 else { return }
+        guard minutesUntil <= notifyLeadMinutes, minutesUntil > 0 else { return }
 
         notifiedEventIDs.insert(id)
 
@@ -96,5 +102,15 @@ final class CalendarModel: ObservableObject {
 
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+}
+
+/// Lets notifications present as banners even when the app is frontmost.
+final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
     }
 }

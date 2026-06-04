@@ -156,6 +156,14 @@ extension EKEvent {
     }
 }
 
+/// A button style with no press feedback, so the Later rows read as tappable
+/// text rather than buttons (the standard `.plain` style still dims on press).
+private struct StaticButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
 /// One compact line in the "Later" list: a time column + the meeting title.
 /// Hover shows the full title as a tooltip; click expands the row to wrap it.
 struct UpcomingRow: View {
@@ -165,7 +173,9 @@ struct UpcomingRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Button {
-                expanded.toggle()
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    expanded.toggle()
+                }
             } label: {
                 HStack(alignment: .top, spacing: 8) {
                     Text(timeLabel)
@@ -181,7 +191,7 @@ struct UpcomingRow: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StaticButtonStyle())
 
             if expanded, event.conferenceURL != nil || event.notesURL != nil {
                 HStack(spacing: 12) {
@@ -194,6 +204,7 @@ struct UpcomingRow: View {
                 }
                 .font(.caption)
                 .padding(.leading, 132) // align under the title column (124 + 8 spacing)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .help(event.title ?? "Untitled")
