@@ -90,15 +90,22 @@ struct PopoverView: View {
         return "\(weekday) at \(time)"
     }
 
-    /// "in 3h 19m" — keeps hours AND minutes (RelativeDateTimeFormatter rounds
-    /// to a single unit and would say just "in 3 hours").
+    /// "in 3h 19m" — minutes always rounded UP (so 3m01s still reads "in 4m"),
+    /// keeping the two most significant units.
     private func relativeText(to date: Date) -> String {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.day, .hour, .minute]
-        formatter.unitsStyle = .abbreviated
-        formatter.maximumUnitCount = 2
-        let interval = max(0, date.timeIntervalSinceNow)
-        return "in " + (formatter.string(from: interval) ?? "0m")
+        let totalMinutes = Int(ceil(max(0, date.timeIntervalSinceNow) / 60))
+        if totalMinutes <= 0 { return "now" }
+
+        let days = totalMinutes / 1440
+        let hours = (totalMinutes % 1440) / 60
+        let minutes = totalMinutes % 60
+
+        var parts: [String] = []
+        if days > 0 { parts.append("\(days)d") }
+        if hours > 0 { parts.append("\(hours)h") }
+        if minutes > 0 { parts.append("\(minutes)m") }
+
+        return "in " + parts.prefix(2).joined(separator: " ")
     }
 
     /// Finds the actual video-conferencing link. Google Calendar dumps several
