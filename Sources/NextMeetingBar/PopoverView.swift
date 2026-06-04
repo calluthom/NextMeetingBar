@@ -184,45 +184,30 @@ extension EKEvent {
     }
 }
 
-/// A button style with no press feedback, so the Later rows read as tappable
-/// text rather than buttons (the standard `.plain` style still dims on press).
-private struct StaticButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-    }
-}
-
 /// One compact line in the "Later" list: a time column + the meeting title.
-/// Hover shows the full title as a tooltip; click expands the row to wrap it.
+/// Hovering the row expands it — unwrapping the full title and revealing the
+/// Join/Notes links.
 struct UpcomingRow: View {
     let event: EKEvent
     var isPast = false
-    @State private var expanded = false
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.22)) {
-                    expanded.toggle()
-                }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(event.title ?? "Untitled")
-                        .font(.callout)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(expanded ? nil : 1)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(whenLine)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title ?? "Untitled")
+                    .font(.callout)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(hovering ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(whenLine)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(StaticButtonStyle())
 
-            if expanded, event.conferenceURL != nil || event.notesURL != nil {
+            if hovering, event.conferenceURL != nil || event.notesURL != nil {
                 HStack(spacing: 12) {
                     if let join = event.conferenceURL {
                         Link("Join", destination: join)
@@ -233,6 +218,13 @@ struct UpcomingRow: View {
                 }
                 .font(.caption)
                 .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { isHovering in
+            withAnimation(.easeInOut(duration: 0.22)) {
+                hovering = isHovering
             }
         }
         .opacity(isPast ? 0.5 : 1)
