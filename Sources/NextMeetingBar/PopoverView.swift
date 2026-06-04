@@ -10,6 +10,18 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if !model.past.isEmpty {
+                Text("Earlier")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(model.past.enumerated()), id: \.offset) { _, event in
+                        UpcomingRow(event: event, isPast: true)
+                    }
+                }
+                Divider()
+            }
+
             Text("Next meeting")
                 .font(.headline)
 
@@ -17,7 +29,7 @@ struct PopoverView: View {
 
             if !model.upcoming.isEmpty {
                 Divider()
-                Text("Later")
+                Text("Upcoming")
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 6) {
@@ -57,7 +69,7 @@ struct PopoverView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "clock")
-                Text(whenText(for: event.startDate))
+                Text(whenText(for: event))
             }
             .foregroundStyle(.secondary)
 
@@ -84,15 +96,19 @@ struct PopoverView: View {
         }
     }
 
-    /// "Today at 2:30 PM" / "Tomorrow at 9:00 AM" / "Friday at 11:00 AM".
+    /// "Today, 3:00 PM to 3:25 PM" / "Tomorrow, …" / "Friday, …".
     /// Drops the full date for today's meetings, where it's just noise.
-    private func whenText(for date: Date) -> String {
+    private func whenText(for event: EKEvent) -> String {
         let calendar = Calendar.current
-        let time = date.formatted(date: .omitted, time: .shortened)
-        if calendar.isDateInToday(date) { return "Today at \(time)" }
-        if calendar.isDateInTomorrow(date) { return "Tomorrow at \(time)" }
-        let weekday = date.formatted(.dateTime.weekday(.wide))
-        return "\(weekday) at \(time)"
+        let day: String
+        if calendar.isDateInToday(event.startDate) {
+            day = "Today"
+        } else if calendar.isDateInTomorrow(event.startDate) {
+            day = "Tomorrow"
+        } else {
+            day = event.startDate.formatted(.dateTime.weekday(.wide))
+        }
+        return "\(day), \(event.timeRangeText)"
     }
 
     /// "in 3h 19m" — minutes always rounded UP (so 3m01s still reads "in 4m"),
@@ -121,6 +137,13 @@ private let conferencingHosts = [
 ]
 
 extension EKEvent {
+    /// "3:00 PM to 3:25 PM" — the meeting's start-to-end time range.
+    var timeRangeText: String {
+        let start = startDate.formatted(date: .omitted, time: .shortened)
+        let end = endDate.formatted(date: .omitted, time: .shortened)
+        return "\(start) to \(end)"
+    }
+
     /// The video-conferencing link, if one is present in the URL/location/notes.
     /// Google Calendar dumps several links into the notes (attached docs, maps,
     /// the Meet link), so we scan every candidate and keep only a known
@@ -168,6 +191,7 @@ private struct StaticButtonStyle: ButtonStyle {
 /// Hover shows the full title as a tooltip; click expands the row to wrap it.
 struct UpcomingRow: View {
     let event: EKEvent
+    var isPast = false
     @State private var expanded = false
 
     var body: some View {
@@ -177,16 +201,16 @@ struct UpcomingRow: View {
                     expanded.toggle()
                 }
             } label: {
-                HStack(alignment: .top, spacing: 8) {
-                    Text(timeLabel)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 124, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(event.title ?? "Untitled")
                         .font(.callout)
                         .multilineTextAlignment(.leading)
                         .lineLimit(expanded ? nil : 1)
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(whenLine)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .contentShape(Rectangle())
@@ -203,16 +227,15 @@ struct UpcomingRow: View {
                     }
                 }
                 .font(.caption)
-                .padding(.leading, 132) // align under the title column (124 + 8 spacing)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .opacity(isPast ? 0.5 : 1)
         .help(event.title ?? "Untitled")
     }
 
-    /// "Today 2:30 PM" / "Tomorrow 9:00 AM" / "Fri 2:30 PM".
-    private var timeLabel: String {
-        let time = event.startDate.formatted(date: .omitted, time: .shortened)
+    /// "Today, 3:00 PM to 3:25 PM" / "Tomorrow, …" / "Fri, …".
+    private var whenLine: String {
         let calendar = Calendar.current
         let day: String
         if calendar.isDateInToday(event.startDate) {
@@ -222,6 +245,6 @@ struct UpcomingRow: View {
         } else {
             day = event.startDate.formatted(.dateTime.weekday(.abbreviated))
         }
-        return "\(day) \(time)"
+        return "\(day), \(event.timeRangeText)"
     }
 }

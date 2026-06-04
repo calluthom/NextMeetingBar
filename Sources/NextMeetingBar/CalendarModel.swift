@@ -7,6 +7,7 @@ import UserNotifications
 final class CalendarModel: ObservableObject {
     private let store = EKEventStore()
 
+    @Published var past: [EKEvent] = []
     @Published var nextEvent: EKEvent?
     @Published var upcoming: [EKEvent] = []
     @Published var authorized = false
@@ -47,15 +48,28 @@ final class CalendarModel: ObservableObject {
     /// Finds the soonest non-all-day event starting in the future, across all calendars.
     func refresh() {
         let now = Date()
-        guard let end = Calendar.current.date(byAdding: .day, value: 7, to: now) else { return }
+        let calendar = Calendar.current
+        guard let end = calendar.date(byAdding: .day, value: 7, to: now) else { return }
 
-        let predicate = store.predicateForEvents(withStart: now, end: end, calendars: nil)
-        let sorted = store.events(matching: predicate)
-            .filter { !$0.isAllDay && $0.startDate > now }
-            .sorted { $0.startDate < $1.startDate }
+        // Look from the start of today so we can also show meetings that already
+        // ended earlier today, above the current/next one.
+        let predicate = store.predicateForEvents(
+            withStart: calendar.startOfDay(for: now), end: end, calendars: nil
+        )
+        let events = store.events(matching: predicate).filter { !$0.isAllDay }
 
-        nextEvent = sorted.first
-        upcoming = Array(sorted.dropFirst().prefix(5))
+        // Upcoming / ongoing: a meeting stays current until it actually ends (its
+        // real duration); overlapping meetings fall into the Later list.
+        let live = events.filter { $0.endDate > now }.sorted { $0.startDate < $1.startDate }
+        nextEvent = live.first
+        upcoming = Array(live.dropFirst().prefix(5))
+
+        // Earlier today: meetings that have already ended (most recent few, chronological).
+        past = Array(
+            events.filter { $0.endDate <= now }
+                .sorted { $0.startDate < $1.startDate }
+                .suffix(5)
+        )
 
         maybeNotify()
     }
