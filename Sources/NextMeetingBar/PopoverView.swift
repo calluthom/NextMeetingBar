@@ -101,14 +101,33 @@ struct PopoverView: View {
         return "in " + (formatter.string(from: interval) ?? "0m")
     }
 
-    /// Prefer the event's structured URL; otherwise scrape the first link out of the notes
-    /// (where Google Meet / Zoom links usually land).
+    /// Finds the actual video-conferencing link. Google Calendar dumps several
+    /// links into the notes (attached docs, maps, the Meet link), so we can't
+    /// just take the first one — we scan every candidate and prefer a known
+    /// conferencing host. Falls back to the event's own URL, never a random doc.
     private func meetingURL(for event: EKEvent) -> URL? {
-        if let url = event.url { return url }
-        guard let notes = event.notes else { return nil }
+        let candidates = [event.url].compactMap { $0 }
+            + links(in: event.location)
+            + links(in: event.notes)
+
+        let providers = [
+            "meet.google.com", "zoom.us", "teams.microsoft.com",
+            "teams.live.com", "webex.com", "whereby.com", "meet.jit.si",
+        ]
+        let conferencing = candidates.first { url in
+            guard let host = url.host?.lowercased() else { return false }
+            return providers.contains { host.contains($0) }
+        }
+
+        return conferencing ?? event.url
+    }
+
+    /// Every URL found in a block of text (notes, location).
+    private func links(in text: String?) -> [URL] {
+        guard let text, !text.isEmpty else { return [] }
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let range = NSRange(notes.startIndex..., in: notes)
-        return detector?.firstMatch(in: notes, range: range)?.url
+        let range = NSRange(text.startIndex..., in: text)
+        return detector?.matches(in: text, range: range).compactMap(\.url) ?? []
     }
 }
 
