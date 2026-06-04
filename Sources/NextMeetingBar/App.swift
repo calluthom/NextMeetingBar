@@ -22,9 +22,7 @@ struct MenuBarLabel: View {
     @ObservedObject var model: CalendarModel
 
     var body: some View {
-        if let event = model.menuBarEvent {
-            // .titleAndIcon forces the text to show — a Label in a status item
-            // defaults to icon-only otherwise.
+        if let event: EKEvent = model.nextEvent {
             Label(labelText(for: event), systemImage: "calendar")
                 .labelStyle(.titleAndIcon)
         } else {
@@ -33,7 +31,7 @@ struct MenuBarLabel: View {
     }
 
     private func labelText(for event: EKEvent) -> String {
-        let trimmed = (event.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed: String = (event.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "Meeting" }
         if model.allowFullTitle { return trimmed }
         // Built-in display: at most 10 chars total (9 + "…" when truncated).

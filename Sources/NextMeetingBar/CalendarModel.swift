@@ -10,9 +10,9 @@ final class CalendarModel: ObservableObject {
     @Published var past: [EKEvent] = []
     /// The meeting featured in the "Next meeting" block — only when it's today
     /// (ongoing or starting today). nil once today's meetings are done.
+    /// Also drives the menu bar label, which shows the calendar glyph alone
+    /// (no title) once today's meetings are done.
     @Published var nextEvent: EKEvent?
-    /// The soonest live meeting regardless of day — drives the menu bar label.
-    @Published var menuBarEvent: EKEvent?
     @Published var upcoming: [EKEvent] = []
     @Published var authorized = false
 
@@ -65,7 +65,6 @@ final class CalendarModel: ObservableObject {
         // Upcoming / ongoing: a meeting stays current until it actually ends (its
         // real duration); overlapping meetings fall into the Upcoming list.
         let live = events.filter { $0.endDate > now }.sorted { $0.startDate < $1.startDate }
-        menuBarEvent = live.first
 
         // Feature the next meeting only if it's today (ongoing or starting today).
         // Otherwise today's done — nextEvent is nil and everything future lists
