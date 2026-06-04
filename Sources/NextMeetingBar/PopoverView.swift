@@ -44,7 +44,7 @@ struct PopoverView: View {
             .font(.callout)
         }
         .padding()
-        .frame(width: 280)
+        .frame(width: 360)
         .task { await model.start() }
     }
 
@@ -65,9 +65,14 @@ struct PopoverView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if let url = meetingURL(for: event) {
-                Link("Join", destination: url)
-                    .buttonStyle(.borderedProminent)
+            HStack(spacing: 12) {
+                if let join = event.conferenceURL ?? event.url {
+                    Link("Join", destination: join)
+                        .buttonStyle(.borderedProminent)
+                }
+                if let notes = event.notesURL {
+                    Link("Notes", destination: notes)
+                }
             }
         } else if !model.authorized {
             Text("Calendar access not granted.\nEnable it in System Settings → Privacy & Security → Calendars.")
@@ -108,29 +113,42 @@ struct PopoverView: View {
         return "in " + parts.prefix(2).joined(separator: " ")
     }
 
-    /// Finds the actual video-conferencing link. Google Calendar dumps several
-    /// links into the notes (attached docs, maps, the Meet link), so we can't
-    /// just take the first one — we scan every candidate and prefer a known
-    /// conferencing host. Falls back to the event's own URL, never a random doc.
-    private func meetingURL(for event: EKEvent) -> URL? {
-        let candidates = [event.url].compactMap { $0 }
-            + links(in: event.location)
-            + links(in: event.notes)
+}
 
-        let providers = [
-            "meet.google.com", "zoom.us", "teams.microsoft.com",
-            "teams.live.com", "webex.com", "whereby.com", "meet.jit.si",
-        ]
-        let conferencing = candidates.first { url in
-            guard let host = url.host?.lowercased() else { return false }
-            return providers.contains { host.contains($0) }
+private let conferencingHosts = [
+    "meet.google.com", "zoom.us", "teams.microsoft.com",
+    "teams.live.com", "webex.com", "whereby.com", "meet.jit.si",
+]
+
+extension EKEvent {
+    /// The video-conferencing link, if one is present in the URL/location/notes.
+    /// Google Calendar dumps several links into the notes (attached docs, maps,
+    /// the Meet link), so we scan every candidate and keep only a known
+    /// conferencing host — never a random attached doc.
+    var conferenceURL: URL? {
+        let candidates = [url].compactMap { $0 }
+            + Self.links(in: location)
+            + Self.links(in: notes)
+        return candidates.first { link in
+            guard let host = link.host?.lowercased() else { return false }
+            return conferencingHosts.contains { host.contains($0) }
         }
+    }
 
-        return conferencing ?? event.url
+    /// A link to the attached agenda/notes doc: the first real web link in the
+    /// notes that isn't the conferencing link. http/https only, so detected
+    /// email addresses (mailto:) and phone numbers (tel:) are ignored.
+    var notesURL: URL? {
+        Self.links(in: notes).first { link in
+            guard let scheme = link.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  let host = link.host?.lowercased() else { return false }
+            return !conferencingHosts.contains { host.contains($0) }
+        }
     }
 
     /// Every URL found in a block of text (notes, location).
-    private func links(in text: String?) -> [URL] {
+    private static func links(in text: String?) -> [URL] {
         guard let text, !text.isEmpty else { return [] }
         let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
         let range = NSRange(text.startIndex..., in: text)
@@ -139,27 +157,60 @@ struct PopoverView: View {
 }
 
 /// One compact line in the "Later" list: a time column + the meeting title.
+/// Hover shows the full title as a tooltip; click expands the row to wrap it.
 struct UpcomingRow: View {
     let event: EKEvent
+    @State private var expanded = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(timeLabel)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 78, alignment: .leading)
-            Text(event.title ?? "Untitled")
-                .font(.callout)
-                .lineLimit(1)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                expanded.toggle()
+            } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(timeLabel)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(width: 124, alignment: .leading)
+                    Text(event.title ?? "Untitled")
+                        .font(.callout)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(expanded ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expanded, event.conferenceURL != nil || event.notesURL != nil {
+                HStack(spacing: 12) {
+                    if let join = event.conferenceURL {
+                        Link("Join", destination: join)
+                    }
+                    if let notes = event.notesURL {
+                        Link("Notes", destination: notes)
+                    }
+                }
+                .font(.caption)
+                .padding(.leading, 132) // align under the title column (124 + 8 spacing)
+            }
         }
+        .help(event.title ?? "Untitled")
     }
 
-    /// "2:30 PM" for today, "Fri 2:30 PM" otherwise.
+    /// "Today 2:30 PM" / "Tomorrow 9:00 AM" / "Fri 2:30 PM".
     private var timeLabel: String {
         let time = event.startDate.formatted(date: .omitted, time: .shortened)
-        if Calendar.current.isDateInToday(event.startDate) { return time }
-        let day = event.startDate.formatted(.dateTime.weekday(.abbreviated))
+        let calendar = Calendar.current
+        let day: String
+        if calendar.isDateInToday(event.startDate) {
+            day = "Today"
+        } else if calendar.isDateInTomorrow(event.startDate) {
+            day = "Tomorrow"
+        } else {
+            day = event.startDate.formatted(.dateTime.weekday(.abbreviated))
+        }
         return "\(day) \(time)"
     }
 }
