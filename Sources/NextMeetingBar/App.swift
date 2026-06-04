@@ -22,7 +22,7 @@ struct MenuBarLabel: View {
     @ObservedObject var model: CalendarModel
 
     var body: some View {
-        if let event = model.nextEvent {
+        if let event = model.menuBarEvent {
             // .titleAndIcon forces the text to show — a Label in a status item
             // defaults to icon-only otherwise.
             Label(labelText(for: event), systemImage: "calendar")

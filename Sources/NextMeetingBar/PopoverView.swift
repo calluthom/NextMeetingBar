@@ -22,8 +22,10 @@ struct PopoverView: View {
                 Divider()
             }
 
-            Text("Next meeting")
-                .font(.headline)
+            if model.nextEvent != nil {
+                Text("Next meeting")
+                    .font(.headline)
+            }
 
             content
 
@@ -90,6 +92,9 @@ struct PopoverView: View {
             Text("Calendar access not granted.\nEnable it in System Settings → Privacy & Security → Calendars.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+        } else if !model.upcoming.isEmpty {
+            Text("No more meetings today! :)")
+                .font(.headline)
         } else {
             Text("Nothing upcoming in the next 7 days")
                 .foregroundStyle(.secondary)
