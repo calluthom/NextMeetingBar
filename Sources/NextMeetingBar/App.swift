@@ -35,22 +35,19 @@ struct MenuBarLabel: View {
         let trimmed: String = (event.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let title: String = trimmed.isEmpty ? "Meeting" : trimmed
         if model.allowFullTitle {
-            // Roomy display: full title, prefixed with the countdown when the
-            // meeting hasn't started yet (e.g. "15m · Standup").
-            if let countdown = timeUntil(event.startDate) {
-                return "\(countdown) · \(title)"
-            }
-            return title
+            // Roomy display: full title, prefixed with the countdown until it
+            // starts ("15m · Standup") or "Now" once it's ongoing.
+            return "\(timeUntil(event.startDate)) · \(title)"
         }
         // Built-in display: at most 10 chars total (9 + "…" when truncated).
         return title.count <= 10 ? title : title.prefix(9) + "…"
     }
 
-    /// A short countdown until `start` ("15m", "2h 5m"), or nil if it's not in
-    /// the future (the meeting is already ongoing).
-    private func timeUntil(_ start: Date) -> String? {
+    /// A short countdown until `start` ("15m", "2h 5m"), or "Now" once the
+    /// meeting is already ongoing.
+    private func timeUntil(_ start: Date) -> String {
         let seconds = start.timeIntervalSinceNow
-        guard seconds > 0 else { return nil }
+        guard seconds > 0 else { return "Now" }
         let totalMinutes = Int(seconds / 60)
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
