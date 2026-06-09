@@ -75,7 +75,7 @@ struct PopoverView: View {
             }
             .foregroundStyle(.secondary)
 
-            Text(relativeText(to: event.startDate))
+            Text(relativeText(for: event))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -116,22 +116,10 @@ struct PopoverView: View {
         return "\(day), \(event.timeRangeText)"
     }
 
-    /// "in 3h 19m" — minutes always rounded UP (so 3m01s still reads "in 4m"),
-    /// keeping the two most significant units.
-    private func relativeText(to date: Date) -> String {
-        let totalMinutes = Int(ceil(max(0, date.timeIntervalSinceNow) / 60))
-        if totalMinutes <= 0 { return "now" }
-
-        let days = totalMinutes / 1440
-        let hours = (totalMinutes % 1440) / 60
-        let minutes = totalMinutes % 60
-
-        var parts: [String] = []
-        if days > 0 { parts.append("\(days)d") }
-        if hours > 0 { parts.append("\(hours)h") }
-        if minutes > 0 { parts.append("\(minutes)m") }
-
-        return "in " + parts.prefix(2).joined(separator: " ")
+    /// "in 3h 19m", or "now" once the meeting has started.
+    private func relativeText(for event: EKEvent) -> String {
+        guard let countdown = event.startCountdown else { return "now" }
+        return "in " + countdown
     }
 
 }
@@ -142,6 +130,25 @@ private let conferencingHosts = [
 ]
 
 extension EKEvent {
+    /// Rounded-up countdown to the start, two most significant units
+    /// ("3h 19m", "4m") — minutes always round UP so 3m01s reads "4m".
+    /// nil once the meeting has started (caller decides how to say "now").
+    var startCountdown: String? {
+        let totalMinutes = Int(ceil(startDate.timeIntervalSinceNow / 60))
+        guard totalMinutes > 0 else { return nil }
+
+        let days = totalMinutes / 1440
+        let hours = (totalMinutes % 1440) / 60
+        let minutes = totalMinutes % 60
+
+        var parts: [String] = []
+        if days > 0 { parts.append("\(days)d") }
+        if hours > 0 { parts.append("\(hours)h") }
+        if minutes > 0 { parts.append("\(minutes)m") }
+
+        return parts.prefix(2).joined(separator: " ")
+    }
+
     /// "3:00 PM to 3:25 PM" — the meeting's start-to-end time range.
     var timeRangeText: String {
         let start = startDate.formatted(date: .omitted, time: .shortened)
