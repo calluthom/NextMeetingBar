@@ -57,8 +57,11 @@ final class CalendarModel: ObservableObject {
 
         // Look from the start of today so we can also show meetings that already
         // ended earlier today, above the current/next one.
+        // `-onlyCalendar Demo` at launch limits to one calendar, for clean screenshots.
+        let only = UserDefaults.standard.string(forKey: "onlyCalendar")
+        let calendars = only.map { name in store.calendars(for: .event).filter { $0.title == name } }
         let predicate = store.predicateForEvents(
-            withStart: calendar.startOfDay(for: now), end: end, calendars: nil
+            withStart: calendar.startOfDay(for: now), end: end, calendars: calendars
         )
         let events = store.events(matching: predicate).filter { !$0.isAllDay }
 

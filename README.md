@@ -2,10 +2,12 @@
 
 A tiny native macOS menu bar app that shows your next upcoming meeting and notifies you before it starts. Built with SwiftUI + EventKit — it reads whatever calendars macOS already syncs (including Google Calendar added via System Settings), so there's no OAuth, API keys, or sync logic of its own.
 
+<p align="center"><img src="docs/screenshot.png" width="380" alt="NextMeetingBar popover showing the next meeting with a countdown and Join button, earlier meetings today, and upcoming meetings"></p>
+
 ## Features
 
 - **Compact menu bar label** — shows the next meeting's title, adapting to your display: full title on a wide/external display, truncated to 10 characters on the built-in screen.
-- **Popover panel** — next meeting with relative-day time ("Today at 2:30 PM"), a precise countdown ("in 3h 19m"), a Join link scraped from the event, and a "Later" list of the following meetings.
+- **Popover panel** — today's earlier meetings, the next meeting with a countdown ("in 3h 19m") plus Join and Notes links scraped from the event, and an Upcoming list for the rest of the week.
 - **Notifications** — fires ~5 minutes before a meeting starts.
 - **Launch at login** — toggle in the panel (via `SMAppService`).
 - **Menu-bar-only** — no Dock icon (`LSUIElement`).
@@ -45,6 +47,13 @@ Sources/NextMeetingBar/
   CalendarModel.swift      # EventKit fetch, 60s refresh, notifications, screen detection
   PopoverView.swift        # next meeting + "Later" list panel
   LoginItem.swift          # launch-at-login via SMAppService
+```
+
+## Demo screenshots
+
+```sh
+./scripts/demo-calendar.sh                       # fills a "Demo" calendar, next meeting in 10 min
+open NextMeetingBar.app --args -onlyCalendar Demo  # show only that calendar
 ```
 
 ## Opening in Xcode
